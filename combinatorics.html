@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combinatorics Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); width: 95%; max-width: 1100px; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .math-display { background: #fff; border: 2px solid #e9ecef; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; min-height: 120px; }
+        .mode-desc { font-size: 0.9rem; color: #666; margin-top: 5px; font-style: italic; }
+        #tree-output { overflow-x: auto; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        select, input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+        .highlight { color: #007bff; font-weight: bold; font-size: 1.2rem; margin-top: 10px; }
+        .fraction { display: inline-block; vertical-align: middle; text-align: center; margin: 0 10px; }
+        .numerator { border-bottom: 1px solid black; padding: 0 5px; }
+        .denominator { padding: 0 5px; }
+        .cancel { text-decoration: line-through; color: #adb5bd; }
+        .expansion-box { font-size: 1.1rem; margin: 15px 0; color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Combinatorics Explorer</h1>
+
+    <div class="controls">
+        <div>
+            <label>Mode:</label>
+            <select id="mode" onchange="syncAndRun()">
+                <optgroup label="Permutations (Order Matters)">
+                    <option value="p_no_rep">Permutation (No Repetition)</option>
+                    <option value="p_rep">Permutation (With Repetition)</option>
+                    <option value="p_circ">Circular Permutation</option>
+                </optgroup>
+                <optgroup label="Combinations (Order Doesn't Matter)">
+                    <option value="comb">Combination (No Repetition)</option>
+                    <option value="comb_rep">Combination (With Repetition)</option>
+                </optgroup>
+            </select>
+            <div id="mode-text" class="mode-desc">Order matters, use each item once.</div>
+        </div>
+        <div>
+            <label>Set (n): </label>
+            <input type="text" id="inputN" value="ABC" oninput="syncAndRun()">
+        </div>
+        <div>
+            <label>Pick (r): </label>
+            <input type="number" id="inputR" value="2" min="1" oninput="syncAndRun()">
+        </div>
+    </div>
+
+    <div class="math-display">
+        <div id="formula-latex" style="font-size: 1.4rem; margin-bottom: 10px;"></div>
+        <div id="expansion-logic" class="expansion-box"></div>
+        <div id="math-breakdown"></div>
+        <div id="final-calc" class="highlight"></div>
+    </div>
+
+    <div id="pascal-container" style="display: none; margin-top: 20px; padding: 25px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+        <h3 style="margin-top: 0; color: #2c3e50; font-size: 1.4rem; text-align: center; margin-bottom: 20px;">🔺 Pascal's Triangle</h3>
+        <div id="pascal-triangle" style="text-align: center; font-family: 'Courier New', monospace; line-height: 1.8; padding: 15px; background: rgba(255,255,255,0.7); border-radius: 10px; overflow-x: auto;"></div>
+        <div id="pascal-explanation" style="margin-top: 20px; color: #666; font-size: 0.95rem;"></div>
+    </div>
+
+    <div id="tree-output">
+        <pre class="mermaid" id="mermaid-canvas"></pre>
+    </div>
+</div>
+
+<script>
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+
+    function factorial(n) { return (n <= 1) ? 1 : n * factorial(n - 1); }
+    function nCr(n, r) { return factorial(n) / (factorial(r) * factorial(n - r)); }
+
+    function getFactorialChain(start, end = 1) {
+        let chain = [];
+        for (let i = start; i >= 1; i--) {
+            chain.push(i);
+        }
+        return chain;
+    }
+
+    function generatePascalTriangle(rows) {
+        let triangle = [];
+        for (let i = 0; i < rows; i++) {
+            triangle[i] = [];
+            for (let j = 0; j <= i; j++) {
+                if (j === 0 || j === i) {
+                    triangle[i][j] = 1;
+                } else {
+                    triangle[i][j] = triangle[i-1][j-1] + triangle[i-1][j];
+                }
+            }
+        }
+        return triangle;
+    }
+
+    function renderPascalTriangle(n, r, mode) {
+        const container = document.getElementById('pascal-container');
+        const triangleDiv = document.getElementById('pascal-triangle');
+        const explanationDiv = document.getElementById('pascal-explanation');
+
+        // Only show for combination modes
+        if (mode !== 'comb' && mode !== 'comb_rep') {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        const rows = mode === 'comb' ? Math.min(n + 1, 12) : Math.min(n + r, 12);
+        const triangle = generatePascalTriangle(rows);
+
+        let html = '';
+        triangle.forEach((row, rowIndex) => {
+            const spacing = '&nbsp;&nbsp;&nbsp;'.repeat(rows - rowIndex);
+            const values = row.map((val, colIndex) => {
+                // Highlight the relevant value
+                let isHighlight = false;
+                let isPath = false;
+
+                if (mode === 'comb' && rowIndex === n && colIndex === r) {
+                    isHighlight = true;
+                } else if (mode === 'comb_rep' && rowIndex === (n + r - 1) && colIndex === r) {
+                    isHighlight = true;
+                }
+
+                // Highlight the path (edges) leading to the target
+                if (mode === 'comb') {
+                    if ((rowIndex === n-1 && (colIndex === r-1 || colIndex === r)) ||
+                        (rowIndex < n && colIndex <= r && rowIndex >= colIndex && n - rowIndex >= r - colIndex)) {
+                        isPath = true;
+                    }
+                }
+
+                let style = 'padding: 4px 10px; margin: 2px; display: inline-block; min-width: 35px; transition: all 0.3s ease;';
+
+                if (isHighlight) {
+                    style += 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transform: scale(1.15);';
+                } else if (isPath) {
+                    style += 'background: #e3f2fd; color: #1976d2; border-radius: 6px; font-weight: 600; border: 1px solid #90caf9;';
+                } else {
+                    style += 'background: #f8f9fa; color: #495057; border-radius: 6px; border: 1px solid #e9ecef;';
+                }
+
+                return `<span style="${style}">${val}</span>`;
+            }).join('&nbsp;');
+
+            html += `<div style="margin: 4px 0;">${spacing}${values}</div>`;
+        });
+
+        triangleDiv.innerHTML = html;
+
+        // Add explanation with better formatting
+        if (mode === 'comb') {
+            const binomialValue = nCr(n, r);
+            explanationDiv.innerHTML = `
+                <div style="background: #fff; padding: 15px; border-left: 4px solid #667eea; border-radius: 5px;">
+                    <strong style="color: #667eea;">📍 How to read Pascal's Triangle:</strong><br>
+                    <span style="margin-left: 20px;">• Row ${n}, Position ${r} → <strong style="color: #764ba2;">C(${n},${r}) = ${binomialValue}</strong></span><br>
+                    <span style="margin-left: 20px;">• Each number = sum of the two numbers directly above it</span><br>
+                    <span style="margin-left: 20px;">• Formula: C(n,r) = C(n-1,r-1) + C(n-1,r)</span><br>
+                    <span style="margin-left: 20px; font-size: 0.9em; color: #666;">💡 Highlighted path shows all related values</span>
+                </div>
+            `;
+        } else if (mode === 'comb_rep') {
+            const starsAndBarsValue = nCr(n + r - 1, r);
+            explanationDiv.innerHTML = `
+                <div style="background: #fff; padding: 15px; border-left: 4px solid #667eea; border-radius: 5px;">
+                    <strong style="color: #667eea;">⭐ Stars & Bars Method:</strong><br>
+                    <span style="margin-left: 20px;">• Row ${n + r - 1}, Position ${r} → <strong style="color: #764ba2;">C(${n + r - 1},${r}) = ${starsAndBarsValue}</strong></span><br>
+                    <span style="margin-left: 20px;">• With repetition, we need ${r} items from ${n} types</span><br>
+                    <span style="margin-left: 20px;">• This transforms to choosing ${r} positions out of ${n + r - 1}</span><br>
+                    <span style="margin-left: 20px; font-size: 0.9em; color: #666;">💡 Think of it as distributing ${r} identical stars into ${n} bins</span>
+                </div>
+            `;
+        }
+    }
+
+    function syncAndRun() {
+        const mode = document.getElementById('mode').value;
+        const str = document.getElementById('inputN').value;
+        const n = str.length;
+        let r = parseInt(document.getElementById('inputR').value);
+
+        if (r > n && mode !== 'p_rep' && mode !== 'comb_rep') { r = n; document.getElementById('inputR').value = n; }
+        if (r < 1) { r = 1; document.getElementById('inputR').value = 1; }
+        if (r > 4 && mode === 'p_rep') { r = 4; document.getElementById('inputR').value = 4; } // Limit repetition tree size
+        if (mode === 'p_circ') { r = n; document.getElementById('inputR').value = n; } // Circular uses all items
+
+        let formula = "";
+        let breakdown = "";
+        let result = 0;
+        let expansionHTML = "";
+
+        if (mode === 'p_no_rep') {
+            document.getElementById('mode-text').innerText = "Order matters (AB ≠ BA). Items cannot be reused.";
+            formula = "$$P(n, r) = \\frac{n!}{(n-r)!}$$";
+            result = factorial(n) / factorial(n - r);
+            breakdown = `Multiplying ${r} decreasing factors: ${Array.from({length: r}, (_, i) => n - i).join(' × ')}`;
+
+            // Expansion logic with cancellation
+            const diff = n - r;
+            const nChain = getFactorialChain(n);
+            const diffChain = getFactorialChain(diff);
+            let numeratorHTML = nChain.map(num => num <= diff ? `<span class="cancel">${num}</span>` : `<span>${num}</span>`).join(' × ');
+            let denominatorHTML = diffChain.length > 0 ? diffChain.map(num => `<span class="cancel">${num}</span>`).join(' × ') : "1";
+            expansionHTML = `
+                <div style="display:inline-block; vertical-align:middle;">
+                    <div style="border-bottom:1px solid black; padding: 5px;">${numeratorHTML}</div>
+                    <div style="padding: 5px;">${denominatorHTML}</div>
+                </div>
+            `;
+        }
+        else if (mode === 'p_rep') {
+            document.getElementById('mode-text').innerText = "Order matters. Items CAN be reused (like a lock code).";
+            formula = "$$n^r$$";
+            result = Math.pow(n, r);
+            breakdown = `Multiplying n, ${r} times: ${Array.from({length: r}, () => n).join(' × ')}`;
+        }
+        else if (mode === 'p_circ') {
+            document.getElementById('mode-text').innerText = "Arranging items in a circle. Rotating the circle doesn't count as a new way.";
+            formula = "$$(n-1)!$$";
+            result = factorial(n - 1);
+            breakdown = `Circular permutations: Fix one position and arrange remaining ${n-1} items`;
+
+            // Expansion logic for (n-1)!
+            const chain = getFactorialChain(n - 1);
+            expansionHTML = chain.join(' × ') + ` = ${result}`;
+        }
+        else if (mode === 'comb') {
+            document.getElementById('mode-text').innerText = "Order DOES NOT matter (AB = BA). Items cannot be reused.";
+            formula = "$$C(n, r) = \\binom{n}{r} = \\frac{n!}{r!(n-r)!}$$";
+            result = factorial(n) / (factorial(r) * factorial(n - r));
+            breakdown = `Permutations (${factorial(n)/factorial(n-r)}) divided by ways to arrange r (${factorial(r)})`;
+
+            // Expansion logic with double cancellation
+            const diff = n - r;
+            const nChain = getFactorialChain(n);
+            const rChain = getFactorialChain(r);
+            const diffChain = getFactorialChain(diff);
+
+            let numeratorHTML = nChain.map(num => num <= diff ? `<span class="cancel">${num}</span>` : `<span>${num}</span>`).join(' × ');
+            let denominatorHTML = rChain.join(' × ') + (diffChain.length > 0 ? ' × ' + diffChain.map(num => `<span class="cancel">${num}</span>`).join(' × ') : "");
+
+            expansionHTML = `
+                <div style="display:inline-block; vertical-align:middle;">
+                    <div style="border-bottom:1px solid black; padding: 5px;">${numeratorHTML}</div>
+                    <div style="padding: 5px;">${denominatorHTML}</div>
+                </div>
+            `;
+        }
+        else if (mode === 'comb_rep') {
+            document.getElementById('mode-text').innerText = "Order DOES NOT matter. Items CAN be reused (Stars & Bars method).";
+            formula = "$$\\binom{n+r-1}{r}$$";
+            result = nCr(n + r - 1, r);
+            breakdown = `Stars & Bars: Choose ${r} from ${n + r - 1} positions = ${nCr(n + r - 1, r)}`;
+
+            // Expansion for Stars & Bars
+            const total = n + r - 1;
+            const diff = total - r;
+            const totalChain = getFactorialChain(total);
+            const rChain = getFactorialChain(r);
+            const diffChain = getFactorialChain(diff);
+
+            let numeratorHTML = totalChain.map(num => num <= diff ? `<span class="cancel">${num}</span>` : `<span>${num}</span>`).join(' × ');
+            let denominatorHTML = rChain.join(' × ') + (diffChain.length > 0 ? ' × ' + diffChain.map(num => `<span class="cancel">${num}</span>`).join(' × ') : "");
+
+            expansionHTML = `
+                <div style="display:inline-block; vertical-align:middle;">
+                    <div style="border-bottom:1px solid black; padding: 5px;">${numeratorHTML}</div>
+                    <div style="padding: 5px;">${denominatorHTML}</div>
+                </div>
+            `;
+        }
+
+        document.getElementById('formula-latex').innerHTML = formula;
+        document.getElementById('expansion-logic').innerHTML = expansionHTML;
+        document.getElementById('math-breakdown').innerHTML = breakdown;
+        document.getElementById('final-calc').innerHTML = `Total: ${result}`;
+
+        if (window.MathJax) MathJax.typeset();
+        renderPascalTriangle(n, r, mode);
+        renderTree(str.split(''), r, mode);
+    }
+
+    function renderTree(chars, r, mode) {
+        let syntax = "graph TD\n";
+        syntax += `Start(["Set: {${chars.join(',')}}"])\n`;
+        let seenCombinations = new Set();
+
+        function build(currentPath, remainingChars, parentId, depth) {
+            if (depth >= r) return;
+
+            // In Permutation/Combination with Repetition, 'available' is always the full set
+            const available = (mode === 'p_rep' || mode === 'comb_rep') ? chars : remainingChars;
+
+            available.forEach((char, index) => {
+                let nextPath = [...currentPath, char];
+
+                // For Combinations, we skip paths that are just reorders of seen ones
+                if (mode === 'comb') {
+                    let sortedPath = [...nextPath].sort().join('');
+                    // Only allow paths that are sorted to avoid duplicates (e.g., allow AB, skip BA)
+                    if (currentPath.length > 0 && char < currentPath[currentPath.length-1]) return;
+                }
+
+                // For Combination with Repetition, maintain alphabetical order
+                if (mode === 'comb_rep') {
+                    if (currentPath.length > 0 && char < currentPath[currentPath.length-1]) return;
+                }
+
+                // For Circular Permutation, fix first element to break rotational symmetry
+                if (mode === 'p_circ') {
+                    if (currentPath.length === 0 && char !== chars[0]) return;
+                }
+
+                const nodeID = parentId + char + index + depth;
+                const label = (depth === r - 1) ? `[${nextPath.join('')}]` : `Pick ${char}`;
+                syntax += `  ${parentId} --> ${nodeID}("${label}")\n`;
+
+                const nextRemaining = [...remainingChars];
+                if (mode !== 'p_rep' && mode !== 'comb_rep') {
+                    const idxInRemaining = nextRemaining.indexOf(char);
+                    nextRemaining.splice(idxInRemaining, 1);
+                }
+
+                build(nextPath, nextRemaining, nodeID, depth + 1);
+            });
+        }
+
+        build([], chars, "Start", 0);
+        const canvas = document.getElementById('mermaid-canvas');
+        canvas.innerHTML = syntax;
+        canvas.removeAttribute('data-processed');
+        mermaid.run();
+    }
+
+    syncAndRun();
+</script>
+
+</body>
+</html>
