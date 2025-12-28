@@ -350,7 +350,7 @@
         }
         else if (mode === 'comb') {
             document.getElementById('mode-text').innerText = "Order DOES NOT matter (AB = BA). Items cannot be reused.";
-            formula = "$$C(n, r) = \\binom{n}{r} = \\frac{n!}{r!(n-r)!}$$";
+            formula = "$$C(n, r) = \\binom{n}{r} = \\frac{P(n, r)}{r!} = \\frac{n!}{r!(n-r)!} $$";
             result = factorial(n) / (factorial(r) * factorial(n - r));
             breakdown = `Permutations (${factorial(n)/factorial(n-r)}) divided by ways to arrange r (${factorial(r)})`;
 
