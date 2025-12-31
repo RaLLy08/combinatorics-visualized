@@ -531,12 +531,10 @@
                     .filter(p => p !== sortedComb);
 
                 if (otherPerms.length > 0) {
-                    let previousPermNodeID = nodeID;
-                    otherPerms.forEach((perm, idx) => {
-                        const permNodeID = `${nodeID}_perm${idx}`;
-                        syntax += `  ${previousPermNodeID} -.-> ${permNodeID}["${perm}"]:::translucent\n`;
-                        previousPermNodeID = permNodeID;
-                    });
+                    // Create a single node showing all permutations as an array
+                    const permNodeID = `${nodeID}_perms`;
+                    const permsLabel = otherPerms.join(', ');
+                    syntax += `  ${nodeID} -.-> ${permNodeID}["${permsLabel}"]:::translucent\n`;
                 }
             });
 
