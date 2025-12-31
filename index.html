@@ -491,7 +491,33 @@
                 }
 
                 const nodeID = parentId + char + index + depth;
-                const label = `Pick ${char}`;
+
+                // Calculate excluded elements for hint
+                let excluded = [];
+                if (mode === 'p_no_rep' || mode === 'comb') {
+                    // Show what elements are used up
+                    excluded = nextPath;
+                } else if (mode === 'derangement') {
+                    // Show what's used AND what's forbidden by position
+                    excluded = [...nextPath];
+                    // Add the element that's forbidden at the next position
+                    if (depth < r - 1) {
+                        const forbiddenAtNextPos = chars[nextPath.length];
+                        if (!excluded.includes(forbiddenAtNextPos)) {
+                            excluded.push(forbiddenAtNextPos);
+                        }
+                    }
+                } else if (mode === 'p_circ') {
+                    excluded = nextPath;
+                }
+
+                // Create label with hint
+                let label = `Pick ${char}`;
+                if (excluded.length > 0 && depth < r - 1 && (mode === 'p_no_rep' || mode === 'comb' || mode === 'p_circ' || mode === 'derangement')) {
+                    const excludedStr = excluded.join(',');
+                    label = `Pick ${char}<br/><span style='font-size:0.8em;color:#999;'>exclude {${excludedStr}}</span>`;
+                }
+
                 syntax += `  ${parentId} --> ${nodeID}("${label}")\n`;
 
                 // If we've reached the final depth, add the result node
