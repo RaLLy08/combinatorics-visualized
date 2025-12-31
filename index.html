@@ -491,21 +491,28 @@
                 }
 
                 const nodeID = parentId + char + index + depth;
-                const label = (depth === r - 1) ? `[${nextPath.join('')}]` : `Pick ${char}`;
+                const label = `Pick ${char}`;
                 syntax += `  ${parentId} --> ${nodeID}("${label}")\n`;
 
-                // Store leaf nodes for combination modes
-                if (depth === r - 1 && (mode === 'comb' || mode === 'comb_rep')) {
-                    leafNodes.push({ nodeID, combination: nextPath.join('') });
-                }
+                // If we've reached the final depth, add the result node
+                if (depth === r - 1) {
+                    const resultNodeID = nodeID + "_result";
+                    const resultLabel = `[${nextPath.join('')}]`;
+                    syntax += `  ${nodeID} --> ${resultNodeID}("${resultLabel}")\n`;
 
-                const nextRemaining = [...remainingChars];
-                if (mode !== 'p_rep' && mode !== 'comb_rep') {
-                    const idxInRemaining = nextRemaining.indexOf(char);
-                    nextRemaining.splice(idxInRemaining, 1);
+                    // Store leaf nodes for combination modes (use result node)
+                    if (mode === 'comb' || mode === 'comb_rep') {
+                        leafNodes.push({ nodeID: resultNodeID, combination: nextPath.join('') });
+                    }
+                } else {
+                    // Continue building the tree
+                    const nextRemaining = [...remainingChars];
+                    if (mode !== 'p_rep' && mode !== 'comb_rep') {
+                        const idxInRemaining = nextRemaining.indexOf(char);
+                        nextRemaining.splice(idxInRemaining, 1);
+                    }
+                    build(nextPath, nextRemaining, nodeID, depth + 1);
                 }
-
-                build(nextPath, nextRemaining, nodeID, depth + 1);
             });
         }
 
